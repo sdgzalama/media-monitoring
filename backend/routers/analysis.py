@@ -1,0 +1,87 @@
+from fastapi import APIRouter, HTTPException
+from database.connection import get_db
+from nlp.ai_extractor import extract_analysis_from_ai
+import json
+
+router = APIRouter(prefix="/process", tags=["AI Processing"])
+
+
+@router.post("/media-item/{media_id}")
+def process_single_media_item(media_id: str):
+
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    # -------------------------
+    # 1. Fetch media item
+    # -------------------------
+    cursor.execute("SELECT * FROM media_items WHERE id = %s", (media_id,))
+    item = cursor.fetchone()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Media item not found")
+
+    # Fallback: If raw_text is empty, use raw_title
+    article_text = item["raw_text"]
+    if not article_text or len(article_text.strip()) < 50:
+        article_text = item["raw_title"]
+
+    # -------------------------
+    # 2. Run AI extraction
+    # -------------------------
+    ai_output = extract_analysis_from_ai(article_text)
+
+    if ai_output is None or not isinstance(ai_output, dict):
+        raise HTTPException(
+            status_code=500,
+            detail="AI extraction failed (invalid JSON output)"
+        )
+
+    # Ensure all fields exist
+    for field in [
+        "industry_name", "industry_tactic", "stakeholders",
+        "targeted_policy", "geographical_focus", "outcome_impact"
+    ]:
+        ai_output.setdefault(field, "")
+
+    if isinstance(ai_output.get("stakeholders"), list):
+        stakeholders_str = ", ".join(ai_output["stakeholders"])
+    else:
+        stakeholders_str = str(ai_output["stakeholders"])
+
+    # -------------------------
+    # 3. Update DB
+    # -------------------------
+    update_sql = """
+        UPDATE media_items SET
+            industry_name = %s,
+            industry_tactic = %s,
+            stakeholders = %s,
+            targeted_policy = %s,
+            geographical_focus = %s,
+            outcome_impact = %s,
+            semantic_area_ids = %s,
+            analysis_status = 'extracted'
+        WHERE id = %s
+    """
+
+    cursor.execute(update_sql, (
+        ai_output.get("industry_name", ""),
+        ai_output.get("industry_tactic", ""),
+        stakeholders_str,
+        ai_output.get("targeted_policy", ""),
+        ai_output.get("geographical_focus", ""),
+        ai_output.get("outcome_impact", ""),
+        "",  # semantic areas not yet linked
+        media_id
+    ))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return {
+        "status": "success",
+        "media_id": media_id,
+        "analysis": ai_output
+    }

@@ -6,11 +6,13 @@ from typing import List, Optional
 from database.connection import get_db
 import uuid
 from nlp.semantic_generator import generate_semantic_areas
+
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
-# -----------------------------
-# Pydantic model for validation
-# -----------------------------
+
+# ----------------------------------
+# Pydantic Data Model
+# ----------------------------------
 class ProjectCreate(BaseModel):
     title: str
     description: Optional[str] = None
@@ -24,63 +26,61 @@ class ProjectCreate(BaseModel):
     report_consultation_ids: List[str] = []
 
 
-# -----------------------------
-# POST: Create new project
-# -----------------------------
+# ----------------------------------
+# POST: Create Project
+# ----------------------------------
 @router.post("/")
 def create_project(project: ProjectCreate):
+
     project_id = str(uuid.uuid4())
 
     try:
         conn = get_db()
         cursor = conn.cursor()
 
-        # ---------------------------------------
-        # 1. Insert into projects table
-        # ---------------------------------------
-        sql_project = """
+        # ----------------------------
+        # 1. Insert into main project table
+        # ----------------------------
+        insert_project_sql = """
             INSERT INTO projects (id, title, description, client_id)
             VALUES (%s, %s, %s, %s)
         """
-        cursor.execute(sql_project, (
+        cursor.execute(insert_project_sql, (
             project_id,
             project.title,
             project.description,
-            project.client_id,
+            project.client_id
         ))
 
-        # ---------------------------------------
-        # Helper function for pivot tables
-        # ---------------------------------------
-        def insert_many_to_many(table, items, column_name):
+        # ----------------------------
+        # 2. Helper for many-to-many mappings
+        # ----------------------------
+        def insert_many(table, items, column_name):
             if items:
                 sql = f"INSERT INTO {table} (project_id, {column_name}) VALUES (%s, %s)"
                 cursor.executemany(sql, [(project_id, item) for item in items])
 
-        # ---------------------------------------
-        # 2. Insert many-to-many mappings
-        # ---------------------------------------
-        insert_many_to_many("project_categories", project.category_ids, "category_id")
-        insert_many_to_many("project_collaborators", project.collaborator_ids, "collaborator_id")
-        insert_many_to_many("project_media_sources", project.media_source_ids, "media_source_id")
-        insert_many_to_many("project_report_avenues", project.report_avenue_ids, "report_avenue_id")
-        insert_many_to_many("project_report_times", project.report_time_ids, "report_time_id")
-        insert_many_to_many("project_report_consultations", project.report_consultation_ids, "report_consultation_id")
+        insert_many("project_categories", project.category_ids, "category_id")
+        insert_many("project_collaborators", project.collaborator_ids, "collaborator_id")
+        insert_many("project_media_sources", project.media_source_ids, "media_source_id")
+        insert_many("project_report_avenues", project.report_avenue_ids, "report_avenue_id")
+        insert_many("project_report_times", project.report_time_ids, "report_time_id")
+        insert_many("project_report_consultations", project.report_consultation_ids, "report_consultation_id")
 
         conn.commit()
-        # ---------------------------------------
-        # 3. Generate Semantic Areas using AI
-        # ---------------------------------------
-        thematic_areas = generate_semantic_areas(
+
+        # ----------------------------
+        # 3. Generate AI Semantic Areas
+        # ----------------------------
+        semantic_areas = generate_semantic_areas(
             project_id=project_id,
             title=project.title,
-            description=project.description
+            description=project.description or ""
         )
 
-
-        # ---------------------------------------
-        # Response
-        # ---------------------------------------
+        # ----------------------------
+        # 4. Final Response
+        # ----------------------------
         return {
             "status": "success",
             "message": "Project created successfully",
@@ -94,10 +94,9 @@ def create_project(project: ProjectCreate):
                 "media_source_ids": project.media_source_ids,
                 "report_time_ids": project.report_time_ids,
                 "report_avenue_ids": project.report_avenue_ids,
-                "report_consultation_ids": project.report_consultation_ids
+                "report_consultation_ids": project.report_consultation_ids,
             },
-                "thematic_areas": thematic_areas 
-
+            "thematic_areas": semantic_areas
         }
 
     except Exception as e:
