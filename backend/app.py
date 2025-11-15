@@ -1,7 +1,8 @@
 # backend/app.py
 
 from fastapi import FastAPI
-from routers import health, projects, items
+from routers import health, projects, items, test_db
+
 
 app = FastAPI(
     title="Media Monitoring Backend",
@@ -12,3 +13,5 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(projects.router)
 app.include_router(items.router)
+app.include_router(test_db.router)
+
