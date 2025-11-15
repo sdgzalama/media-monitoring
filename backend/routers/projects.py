@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from database.connection import get_db
 import uuid
-
+from nlp.semantic_generator import generate_semantic_areas
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
 # -----------------------------
@@ -68,6 +68,15 @@ def create_project(project: ProjectCreate):
         insert_many_to_many("project_report_consultations", project.report_consultation_ids, "report_consultation_id")
 
         conn.commit()
+        # ---------------------------------------
+        # 3. Generate Semantic Areas using AI
+        # ---------------------------------------
+        thematic_areas = generate_semantic_areas(
+            project_id=project_id,
+            title=project.title,
+            description=project.description
+        )
+
 
         # ---------------------------------------
         # Response
@@ -86,7 +95,9 @@ def create_project(project: ProjectCreate):
                 "report_time_ids": project.report_time_ids,
                 "report_avenue_ids": project.report_avenue_ids,
                 "report_consultation_ids": project.report_consultation_ids
-            }
+            },
+                "thematic_areas": thematic_areas 
+
         }
 
     except Exception as e:
