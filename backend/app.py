@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from routers import (
-    health, projects, items, test_db, clients, scrape, analysis, dashboard
+    health, projects, items, test_db, clients, scrape, 
+    analysis, dashboard,project_dashboard
 )
 
 app = FastAPI(
@@ -40,3 +41,5 @@ app.include_router(items.router)
 app.include_router(scrape.router)
 app.include_router(analysis.router)
 app.include_router(dashboard.router)
+app.include_router(project_dashboard.router)
+

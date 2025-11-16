@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import MediaItems from "./pages/MediaItems";
+import ProjectAnalytics from "./pages/ProjectAnalytics";  
 
 export default function App() {
   return (
@@ -10,6 +11,8 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/media-items" element={<MediaItems />} />
+        <Route path="/analytics/:id" element={<ProjectAnalytics />} />
+
       </Routes>
     </BrowserRouter>
   );

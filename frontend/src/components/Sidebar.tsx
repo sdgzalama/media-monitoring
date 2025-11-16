@@ -8,6 +8,7 @@ export default function Sidebar() {
     { label: "Dashboard", icon: <FiHome />, path: "/" },
     { label: "Projects", icon: <FiLayers />, path: "/projects" },
     { label: "Media Items", icon: <FiDatabase />, path: "/media" }
+    
   ];
 
   return (

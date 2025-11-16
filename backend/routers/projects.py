@@ -109,3 +109,29 @@ def create_project(project: ProjectCreate):
         if conn.is_connected():
             cursor.close()
             conn.close()
+
+# ----------------------------------
+# GET: List all projects
+# ----------------------------------
+@router.get("/")
+def list_projects():
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT 
+            p.id,
+            p.title AS name,
+            p.description,
+            c.name AS client_name
+        FROM projects p
+        LEFT JOIN clients c ON p.client_id = c.id
+        ORDER BY p.created_at DESC
+    """)
+
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return rows

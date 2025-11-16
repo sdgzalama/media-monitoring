@@ -30,24 +30,52 @@ router = APIRouter(prefix="/media", tags=["Media Items"])
 # ---------------------------------------------
 # NEW: LATEST 10 MEDIA ITEMS
 # ---------------------------------------------
+# @router.post("/process/all")
+# def process_all_items():
+#     conn = get_db()
+#     cursor = conn.cursor(dictionary=True)
+
+#     cursor.execute("SELECT id FROM media_items WHERE analysis_status = 'raw'")
+#     items = cursor.fetchall()
+
+#     # FIX: dynamic import to avoid circular dependency
+#     from routers.analysis import process_single_media_item as process_ai
+
+#     for item in items:
+#         process_ai(item["id"])
+
+#     cursor.close()
+#     conn.close()
+
+#     return {"status": "processing_started", "count": len(items)}
+
+from fastapi import APIRouter, BackgroundTasks
+from database.connection import get_db
+from worker.task_queue import queue_bulk_processing
+
+router = APIRouter(prefix="/media", tags=["Media Items"])
+
 @router.post("/process/all")
-def process_all_items():
+def process_all_items(background: BackgroundTasks):
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("SELECT id FROM media_items WHERE analysis_status = 'raw'")
     items = cursor.fetchall()
 
-    # FIX: dynamic import to avoid circular dependency
-    from routers.analysis import process_single_media_item as process_ai
+    ids = [row["id"] for row in items]
 
-    for item in items:
-        process_ai(item["id"])
+    queue_bulk_processing(background, ids)
 
     cursor.close()
     conn.close()
 
-    return {"status": "processing_started", "count": len(items)}
+    return {
+        "status": "queued",
+        "total": len(ids),
+        "message": "Processing started in background"
+    }
+
 
 @router.get("/latest/10")
 def latest_media_items():
