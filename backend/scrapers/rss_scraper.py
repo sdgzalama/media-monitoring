@@ -1,5 +1,3 @@
-# backend/scrapers/rss_scraper.py
-
 import uuid
 import feedparser
 import requests
@@ -8,18 +6,14 @@ from database.connection import get_db
 from datetime import datetime
 
 
-RSS_FEEDS = {}
-
-
 # -----------------------------------------
-# FLEXIBLE FULL ARTICLE TEXT FETCHER
+# GET FULL ARTICLE TEXT
 # -----------------------------------------
 def fetch_article_text(url: str) -> str:
     try:
         response = requests.get(url, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Try to extract article body
         article = soup.find("article")
         if article:
             paragraphs = article.find_all("p")
@@ -31,10 +25,26 @@ def fetch_article_text(url: str) -> str:
     except Exception as e:
         print("Article fetch failed:", e)
         return ""
-    
+
 
 # -----------------------------------------
-# SAVE ITEM TO DB
+# CHECK IF URL ALREADY EXISTS
+# -----------------------------------------
+def item_exists(url: str):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM media_items WHERE url = %s LIMIT 1", (url,))
+    row = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    return row is not None
+
+
+# -----------------------------------------
+# SAVE NEW MEDIA ITEM
 # -----------------------------------------
 def save_media_item(project_id, source_id, title, text, url, published_at):
     conn = get_db()
@@ -61,6 +71,7 @@ def save_media_item(project_id, source_id, title, text, url, published_at):
     ))
 
     conn.commit()
+
     cursor.close()
     conn.close()
 
@@ -68,22 +79,30 @@ def save_media_item(project_id, source_id, title, text, url, published_at):
 
 
 # -----------------------------------------
-# FLEXIBLE RSS SCRAPER (WORKS FOR ANY FEED)
+# SMART SCRAPER — inserts ONLY new items
 # -----------------------------------------
 def scrape_rss(project_id: str, source_id: str, feed_url: str):
     print("Scraping RSS:", feed_url)
 
     feed = feedparser.parse(feed_url)
-
-    # If feed is empty or invalid — return 0 items
     if not feed.entries:
-        return []
+        return {"new_items": 0, "skipped": 0, "items": []}
 
-    scraped_items = []
+    inserted = 0
+    skipped = 0
+    results = []
 
     for entry in feed.entries:
         title = entry.get("title", "")
         url = entry.get("link", "")
+
+        if not url:
+            continue   # No URL means cannot track duplicates
+
+        # --------- SKIP IF ALREADY SCRAPED ---------
+        if item_exists(url):
+            skipped += 1
+            continue
 
         # Published date
         published = None
@@ -98,11 +117,16 @@ def scrape_rss(project_id: str, source_id: str, feed_url: str):
             project_id, source_id, title, text, url, published
         )
 
-        scraped_items.append({
+        inserted += 1
+        results.append({
             "media_id": media_id,
             "title": title,
             "url": url,
             "published_at": published
         })
 
-    return scraped_items
+    return {
+        "new_items": inserted,
+        "skipped": skipped,
+        "items": results
+    }

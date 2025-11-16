@@ -5,6 +5,8 @@ import MediaItems from "./pages/MediaItems";
 import ProjectAnalytics from "./pages/ProjectAnalytics";  
 import CreateClient from "./pages/CreateClient";
 import CreateProject from "./pages/CreateProject";
+import CreateMediaSource from "./pages/CreateMediaSource";
+
 
 export default function App() {
   return (
@@ -12,10 +14,12 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
-        <Route path="/media-items" element={<MediaItems />} />
+        <Route path="/media" element={<MediaItems />} />
         <Route path="/analytics/:id" element={<ProjectAnalytics />} />
         <Route path="/clients/new" element={<CreateClient />} />
         <Route path="/projects/new" element={<CreateProject />} />
+        <Route path="/add-media-source" element={<CreateMediaSource />} />
+
 
 
       </Routes>

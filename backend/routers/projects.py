@@ -113,11 +113,15 @@ def create_project(project: ProjectCreate):
 # ----------------------------------
 # GET: List all projects
 # ----------------------------------
+# ----------------------------------
+# GET: List all projects + thematic areas
+# ----------------------------------
 @router.get("/")
 def list_projects():
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
+    # 1. Fetch base project info
     cursor.execute("""
         SELECT 
             p.id,
@@ -129,9 +133,22 @@ def list_projects():
         ORDER BY p.created_at DESC
     """)
 
-    rows = cursor.fetchall()
+    projects = cursor.fetchall()
+
+    # 2. Attach thematic areas to each project
+    for p in projects:
+        cursor.execute("""
+            SELECT name 
+            FROM thematic_areas
+            WHERE project_id = %s
+        """, (p["id"],))
+
+        themes = cursor.fetchall()
+
+        # Convert `[{name: "X"}, {name: "Y"}]` → ["X", "Y"]
+        p["thematic_areas"] = [t["name"] for t in themes]
 
     cursor.close()
     conn.close()
 
-    return rows
+    return projects

@@ -11,6 +11,8 @@ export default function Sidebar() {
     { label: "Dashboard", icon: <FiHome />, path: "/" },
     { label: "Projects", icon: <FiLayers />, path: "/projects" },
     { label: "Media Items", icon: <FiDatabase />, path: "/media" },
+    { label: "Add Media Source", icon: <FiDatabase />, path: "/add-media-source" },
+
 
     { label: "➕ Create Client", icon: <FiUserPlus />, path: "/clients/new" },
     { label: "➕ Create Project", icon: <FiFolderPlus />, path: "/projects/new" },

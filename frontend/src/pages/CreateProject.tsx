@@ -11,7 +11,12 @@ export default function CreateProject() {
   const [sources, setSources] = useState<any[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
 
-  // Load clients + sources from API
+  const [loading, setLoading] = useState(false); // NEW ✔ loading state
+  const [message, setMessage] = useState(""); // NEW ✔ message under button
+
+  // -----------------------------------------
+  // Load clients + media sources
+  // -----------------------------------------
   useEffect(() => {
     fetch("http://127.0.0.1:8000/clients/")
       .then((res) => res.json())
@@ -24,8 +29,19 @@ export default function CreateProject() {
       .catch(() => setSources([]));
   }, []);
 
+  // -----------------------------------------
+  // Submit Form
+  // -----------------------------------------
   const submitProject = async () => {
-    await fetch("http://127.0.0.1:8000/projects/", {
+    if (!title.trim() || !clientId) {
+      setMessage("⚠️ Project title and client are required.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("⏳ Creating project… please wait (AI is generating thematic areas)");
+
+    const res = await fetch("http://127.0.0.1:8000/projects/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -41,7 +57,17 @@ export default function CreateProject() {
       }),
     });
 
-    alert("Project created successfully!");
+    setLoading(false);
+
+    if (res.ok) {
+      setMessage("✅ Project created successfully!");
+      setTitle("");
+      setDesc("");
+      setClientId("");
+      setSelectedSources([]);
+    } else {
+      setMessage("❌ Error creating project. Please try again.");
+    }
   };
 
   return (
@@ -50,7 +76,13 @@ export default function CreateProject() {
         Create New Project
       </h1>
 
-      <div style={{ maxWidth: "500px", marginTop: "10px" }}>
+      <form
+        style={{ maxWidth: "500px", marginTop: "10px" }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          submitProject();
+        }}
+      >
         <label>Project Title</label>
         <input
           style={inputStyle}
@@ -63,7 +95,7 @@ export default function CreateProject() {
           style={inputStyle}
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
-        ></textarea>
+        />
 
         <label>Select Client</label>
         <select
@@ -80,42 +112,54 @@ export default function CreateProject() {
         </select>
 
         <label>Media Sources</label>
-<div style={{
-  border: "1px solid #ccc",
-  borderRadius: "6px",
-  padding: "10px",
-  maxHeight: "180px",
-  overflowY: "auto",
-  marginBottom: "15px"
-}}>
-  {sources.length === 0 && <p style={{ opacity: 0.6 }}>No sources found</p>}
 
-  {sources.map((s) => (
-    <div key={s.id} style={{ marginBottom: "5px" }}>
-      <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <input
-          type="checkbox"
-          value={s.id}
-          checked={selectedSources.includes(s.id)}
-          onChange={(e) => {
-            if (e.target.checked) {
-              setSelectedSources([...selectedSources, s.id]);
-            } else {
-              setSelectedSources(selectedSources.filter((x) => x !== s.id));
-            }
+        <div
+          style={{
+            border: "1px solid #ccc",
+            borderRadius: "6px",
+            padding: "10px",
+            maxHeight: "180px",
+            overflowY: "auto",
+            marginBottom: "15px",
           }}
-        />
-        {s.name}
-      </label>
-    </div>
-  ))}
-</div>
+        >
+          {sources.length === 0 && <p>No sources found</p>}
 
+          {sources.map((s) => (
+            <label
+              key={s.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "6px",
+              }}
+            >
+              <input
+                type="checkbox"
+                value={s.id}
+                checked={selectedSources.includes(s.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedSources([...selectedSources, s.id]);
+                  } else {
+                    setSelectedSources(selectedSources.filter((x) => x !== s.id));
+                  }
+                }}
+              />
+              {s.name}
+            </label>
+          ))}
+        </div>
 
-        <button style={btnStyle} onClick={submitProject}>
-          Create Project
+        <button type="submit" style={btnStyle} disabled={loading}>
+          {loading ? "Please Wait…" : "Create Project"}
         </button>
-      </div>
+
+        {message && (
+          <p style={{ marginTop: "10px", fontWeight: "bold" }}>{message}</p>
+        )}
+      </form>
     </MainLayout>
   );
 }
@@ -136,4 +180,4 @@ const btnStyle = {
   borderRadius: "6px",
   fontSize: "16px",
   cursor: "pointer",
-};
+} as const;

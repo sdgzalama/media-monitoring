@@ -114,3 +114,27 @@ def process_single_media_item(media_id: str):
         "analysis": ai_output,
         "classified_themes": theme_ids
     }
+
+
+# @router.post("/media-item/process-all")
+# def process_all_items():
+#     conn = get_db()
+#     cursor = conn.cursor(dictionary=True)
+
+#     cursor.execute("SELECT id FROM media_items WHERE analysis_status = 'raw'")
+#     items = cursor.fetchall()
+
+#     processed = []
+
+#     for item in items:
+#         try:
+#             process_single_media_item(item["id"])
+#             processed.append(item["id"])
+#         except Exception as e:
+#             print("Error processing item:", item["id"], e)
+
+#     return {
+#         "status": "success",
+#         "processed_count": len(processed),
+#         "processed_ids": processed
+#     }
