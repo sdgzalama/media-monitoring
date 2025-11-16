@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 from routers import (
     health, projects, items, test_db, clients, scrape, 
-    analysis, dashboard,project_dashboard
+    analysis, dashboard,project_dashboard,media_sources
 )
 
 app = FastAPI(
@@ -42,4 +42,6 @@ app.include_router(scrape.router)
 app.include_router(analysis.router)
 app.include_router(dashboard.router)
 app.include_router(project_dashboard.router)
+app.include_router(media_sources.router)
+
 

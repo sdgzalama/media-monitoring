@@ -1,5 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { FiHome, FiDatabase, FiLayers } from "react-icons/fi";
+// import { FiHome, FiDatabase, FiLayers } from "react-icons/fi";
+import { FiHome, FiDatabase, FiLayers, FiUserPlus, FiFolderPlus } from "react-icons/fi";
+
+
 
 export default function Sidebar() {
   const { pathname } = useLocation();
@@ -7,7 +10,10 @@ export default function Sidebar() {
   const menu = [
     { label: "Dashboard", icon: <FiHome />, path: "/" },
     { label: "Projects", icon: <FiLayers />, path: "/projects" },
-    { label: "Media Items", icon: <FiDatabase />, path: "/media" }
+    { label: "Media Items", icon: <FiDatabase />, path: "/media" },
+
+    { label: "➕ Create Client", icon: <FiUserPlus />, path: "/clients/new" },
+    { label: "➕ Create Project", icon: <FiFolderPlus />, path: "/projects/new" },
     
   ];
 
@@ -29,6 +35,10 @@ export default function Sidebar() {
       <h2 style={{ textAlign: "center", marginBottom: "30px", fontSize: "22px" }}>
         🟣 HAMASA
       </h2>
+      <p style={{ textAlign: "center", marginTop: "-20px", opacity: 0.7 }}>
+        v1.0.0
+      </p>
+
 
       {menu.map((item) => (
         <Link

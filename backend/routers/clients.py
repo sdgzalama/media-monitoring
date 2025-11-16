@@ -57,3 +57,16 @@ def create_client(client: ClientCreate):
         if conn.is_connected():
             cursor.close()
             conn.close()
+
+
+@router.get("/")
+def list_clients():
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT id, name FROM clients")
+    clients = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return clients
