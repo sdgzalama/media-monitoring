@@ -3,7 +3,7 @@ from typing import List
 import threading
 import time
 
-from routers.analysis import process_single_media_item
+from routers.analysis import process_media_item   # ✅ FIXED IMPORT
 from database.connection import get_db
 
 # GLOBAL PROGRESS TRACKER
@@ -15,28 +15,43 @@ progress = {
 
 
 def _run_bulk(ids: List[str]):
-    """Runs in a background thread."""
+    """
+    Runs AI processing in a background thread.
+    Works with the new multi-project model.
+    """
     progress["running"] = True
     progress["total"] = len(ids)
     progress["done"] = 0
 
     for media_id in ids:
         try:
-            process_single_media_item(media_id)
+            # ⭐ NEW: Correct function name for new architecture
+            process_media_item(media_id)
+
         except Exception as e:
-            print("AI ERROR processing", media_id, " → ", e)
+            print("AI ERROR processing", media_id, "→", e)
 
         progress["done"] += 1
-        time.sleep(0.2)  # Prevent CPU blocking
+
+        # Small delay to prevent CPU blocking
+        time.sleep(0.1)
 
     progress["running"] = False
 
 
+
 def queue_bulk_processing(background: BackgroundTasks, ids: List[str]):
-    """Schedules background bulk processing."""
+    """
+    Schedule background processing of all RAW items.
+    """
+    if progress["running"]:
+        return False  # Already running
+
     background.add_task(_run_bulk, ids)
     return True
 
 
+
 def get_progress():
+    """Return live processing progress."""
     return progress

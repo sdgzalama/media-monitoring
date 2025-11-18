@@ -52,7 +52,7 @@ export default function ProjectAnalytics() {
     );
   }
 
-  const { project, stats, sources, themes, industry_names, tactics, stakeholders, geographical_focus, outcomes } = data;
+  const { project, stats, global_stats, sources, themes, industry_names, tactics, stakeholders, geographical_focus, outcomes } = data;
 
   return (
     <MainLayout>
@@ -106,9 +106,9 @@ export default function ProjectAnalytics() {
           marginBottom: "40px",
         }}
       >
-        <StatCard title="Total Media Items" value={stats.total_items} />
-        <StatCard title="Analysed" value={stats.extracted_items} />
-        <StatCard title="Pending AI" value={stats.awaiting_items} />
+        <StatCard title="Total Media Items" value={stats.total_items} globalValue={global_stats?.total_items} />
+        <StatCard title="Analysed" value={stats.extracted_items} globalValue={global_stats?.extracted_items} />
+        <StatCard title="Pending AI" value={stats.awaiting_items} globalValue={global_stats?.awaiting_items} />
       </div>
 
       {/* ===================== SECTION 2: CHARTS ===================== */}
@@ -194,6 +194,8 @@ function StatCard({ title, value }: any) {
     >
       <h3>{title}</h3>
       <p style={{ fontSize: "32px", fontWeight: "bold" }}>{value}</p>
+      {/** show shared/global dataset value for context */}
+      <p style={{ fontSize: "12px", opacity: 0.9, marginTop: 6 }}>Shared dataset: { (arguments[0] as any).globalValue ?? '—' }</p>
     </div>
   );
 }
