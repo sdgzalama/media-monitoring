@@ -1,59 +1,74 @@
+# backend/nlp/ai_extractor.py
+
 import os
+import requests
 import json
-from dotenv import load_dotenv
-from openai import OpenAI
 
-# Load .env properly
-load_dotenv()
+API_URL = "https://api.deepseek.com/chat/completions"
 
-client = OpenAI(
-    api_key=os.getenv("OPENROUTER_API_KEY"),   # ✅ FIXED
-    base_url="https://openrouter.ai/api/v1"
-)
+# Prefer dedicated key, but fall back to general DEEPSEEK_API_KEY if needed
+DEEPSEEK_EXTRACTION_API_KEY="sk-fdbbc01319c74effbca6cb4c40215e10"
 
-def extract_analysis_from_ai(text: str):
-    prompt = f"""
-    Analyze this media article and extract:
 
-    - industry_name
-    - industry_tactic
-    - stakeholders
-    - targeted_policy
-    - geographical_focus
-    - outcome_impact
-
-    Respond in CLEAN JSON ONLY with this structure:
-
-    {{
-      "industry_name": "",
-      "industry_tactic": "",
-      "stakeholders": [],
-      "targeted_policy": "",
-      "geographical_focus": "",
-      "outcome_impact": ""
-    }}
-
-    Article:
-    {text}
-    """
-
-    try:
-        response = client.chat.completions.create(
-            model="google/gemma-3-4b-it:free",
-            messages=[{"role": "user", "content": prompt}]
+def _require_api_key():
+    if not DEEPSEEK_EXTRACTION_API_KEY:
+        raise RuntimeError(
+            "No DeepSeek key found. Set DEEPSEEK_EXTRACTION_API_KEY or DEEPSEEK_API_KEY."
         )
 
-        raw = response.choices[0].message.content.strip()
 
-        # Remove Markdown wrappers if present
-        if raw.startswith("```"):
-            raw = raw.split("```")[1].replace("json", "").strip()
+def extract_analysis_from_ai(article_text: str) -> dict:
+    """
+    Call DeepSeek and return:
+      industry_name, industry_tactic, stakeholders,
+      targeted_policy, geographical_focus, outcome_impact
+    """
+    _require_api_key()
 
-        return json.loads(raw)
+    prompt = f"""
+    You are an expert media monitoring analyst.
 
-    except Exception as e:
-        print("\n🔥 REAL AI ERROR BELOW 🔥")
-        print(type(e))
-        print(str(e))
-        print("-----------------------------------------------------\n")
-        return None
+    Read the article text below and extract these fields as JSON:
+    - industry_name (short)
+    - industry_tactic (short phrase)
+    - stakeholders (list of key actors/organizations)
+    - targeted_policy (short phrase, law/policy/issue targeted, if any)
+    - geographical_focus (country/region/city)
+    - outcome_impact (1–2 sentence description of likely or actual impact)
+
+    Return ONLY valid JSON. No extra commentary.
+
+    Article:
+    {article_text}
+    """
+
+    resp = requests.post(
+        API_URL,
+        headers={"Authorization": f"Bearer {DEEPSEEK_EXTRACTION_API_KEY}"},
+        json={
+            "model": "deepseek-chat",
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        timeout=60,
+    )
+
+    print("DeepSeek status:", resp.status_code)  # keep for debugging; remove later
+
+    if resp.status_code != 200:
+        raise RuntimeError(
+            f"DeepSeek extraction API error: {resp.status_code} {resp.text}"
+        )
+
+    data = resp.json()
+    content = data["choices"][0]["message"]["content"]
+
+    #Try normal JSON parse
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+    #Handle ```json ... ``` wrapping
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            cleaned = cleaned.replace("json", "", 1).strip()
+        return json.loads(cleaned)

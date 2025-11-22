@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from routers.project_insights import router as project_insights_router
+
 
 from routers import (
     health, projects, items, test_db, clients, scrape, 
-    analysis, dashboard,project_dashboard,media_sources
+    analysis, dashboard,project_dashboard,media_sources,project_media,thematic_area
 )
 
 app = FastAPI(
@@ -43,5 +45,9 @@ app.include_router(analysis.router)
 app.include_router(dashboard.router)
 app.include_router(project_dashboard.router)
 app.include_router(media_sources.router)
+app.include_router(project_insights_router)
+app.include_router(project_media.router)
+app.include_router(thematic_area.router)
+
 
 

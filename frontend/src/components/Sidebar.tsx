@@ -1,8 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
-// import { FiHome, FiDatabase, FiLayers } from "react-icons/fi";
-import { FiHome, FiDatabase, FiLayers, FiUserPlus, FiFolderPlus } from "react-icons/fi";
-
-
+import {
+  FiHome,
+  FiDatabase,
+  FiLayers,
+  FiUserPlus,
+  FiFolderPlus,
+  FiTool,
+  FiPaperclip,
+} from "react-icons/fi";
 
 export default function Sidebar() {
   const { pathname } = useLocation();
@@ -13,10 +18,12 @@ export default function Sidebar() {
     { label: "Media Items", icon: <FiDatabase />, path: "/media" },
     { label: "Add Media Source", icon: <FiDatabase />, path: "/add-media-source" },
 
-
     { label: "➕ Create Client", icon: <FiUserPlus />, path: "/clients/new" },
     { label: "➕ Create Project", icon: <FiFolderPlus />, path: "/projects/new" },
-    
+    { label: "Edit Thematics", icon: <FiTool />, path: "/themes" },
+
+    // NEW: direct shortcut to media detail (without id)
+    // { label: "Media Details", icon: <FiPaperclip />, path: "/media-item" },
   ];
 
   return (
@@ -41,15 +48,11 @@ export default function Sidebar() {
         v1.0.0
       </p>
 
-
       {menu.map((item) => (
         <Link
           key={item.path}
           to={item.path}
-          style={{
-            textDecoration: "none",
-            color: "white",
-          }}
+          style={{ textDecoration: "none", color: "white" }}
         >
           <div
             style={{
@@ -60,6 +63,7 @@ export default function Sidebar() {
               background: pathname === item.path ? "#512E89" : "transparent",
               cursor: "pointer",
               fontSize: "16px",
+              transition: "0.2s",
             }}
           >
             {item.icon}

@@ -4,8 +4,6 @@ import requests
 from bs4 import BeautifulSoup
 from database.connection import get_db
 from datetime import datetime
-from nlp.insight_engine import generate_project_insights
-
 
 
 # ---------------------------------------------------------
@@ -74,7 +72,7 @@ def link_item_to_project(project_id, media_id):
 
 
 # ---------------------------------------------------------
-# MAIN SCRAPER (SHARED MODE)
+# MAIN SCRAPER — CLEAN VERSION (NO AI)
 # ---------------------------------------------------------
 def scrape_rss(project_id: str, source_id: str, feed_url: str):
     print("Scraping RSS:", feed_url)
@@ -84,7 +82,7 @@ def scrape_rss(project_id: str, source_id: str, feed_url: str):
         return {"new_items": 0, "reused_items": 0, "items": []}
 
     # ----------------------------------------------------
-    # FIND ALL PROJECTS THAT USE THIS MEDIA SOURCE
+    # GET ALL PROJECTS USING THIS SOURCE
     # ----------------------------------------------------
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
@@ -101,19 +99,18 @@ def scrape_rss(project_id: str, source_id: str, feed_url: str):
     cursor.close()
     conn.close()
 
-    print("BBC shared to these projects:", project_ids)
+    print("Source shared to these projects:", project_ids)
 
     inserted = 0
     reused = 0
     results = []
 
-        # ----------------------------------------------------
+    # ----------------------------------------------------
     # PROCESS FEED ITEMS
     # ----------------------------------------------------
     for entry in feed.entries:
         title = entry.get("title", "")
         url = entry.get("link", "")
-
         if not url:
             continue
 
@@ -121,27 +118,23 @@ def scrape_rss(project_id: str, source_id: str, feed_url: str):
         if entry.get("published_parsed"):
             published = datetime(*entry.published_parsed[:6])
 
-        # 1️⃣ Check if already saved globally
+        # Check if item already exists
         existing_id = get_existing_item_id(url)
 
         if existing_id:
-            # Link to ALL projects
             for pid in project_ids:
                 link_item_to_project(pid, existing_id)
-
             reused += 1
             continue
 
-        # 2️⃣ Create new item
+        # Save new item
         text = fetch_article_text(url)
         media_id = save_media_item(source_id, title, text, url, published)
 
-        # Link new item to all projects
         for pid in project_ids:
             link_item_to_project(pid, media_id)
 
         inserted += 1
-
         results.append({
             "media_id": media_id,
             "title": title,
@@ -150,20 +143,11 @@ def scrape_rss(project_id: str, source_id: str, feed_url: str):
         })
 
     # ----------------------------------------------------
-    # AFTER SCRAPING → REGENERATE INSIGHTS FOR ALL PROJECTS
+    # IMPORTANT!! — NO AI CALLS HERE
     # ----------------------------------------------------
-    for pid in project_ids:
-        try:
-            print("Generating insights for:", pid)
-            generate_project_insights(pid)
-        except Exception as e:
-            print("Insight generation error:", e)
 
-    # ----------------------------------------------------
-    # RETURN SCRAPE RESULTS
-    # ----------------------------------------------------
     return {
         "new_items": inserted,
         "reused_items": reused,
         "items": results
-    }
+    } 

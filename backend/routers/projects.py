@@ -116,6 +116,9 @@ def create_project(project: ProjectCreate):
 # ----------------------------------
 # GET: List all projects + thematic areas
 # ----------------------------------
+# ----------------------------------
+# GET: List all projects + thematic areas + media sources
+# ----------------------------------
 @router.get("/")
 def list_projects():
     conn = get_db()
@@ -135,18 +138,41 @@ def list_projects():
 
     projects = cursor.fetchall()
 
-    # 2. Attach thematic areas to each project
+    # 2. Attach thematic areas + project-specific media sources
     for p in projects:
+
+        # -----------------------------
+        # THEMATIC AREAS
+        # -----------------------------
         cursor.execute("""
             SELECT name 
             FROM thematic_areas
             WHERE project_id = %s
         """, (p["id"],))
-
         themes = cursor.fetchall()
-
-        # Convert `[{name: "X"}, {name: "Y"}]` → ["X", "Y"]
         p["thematic_areas"] = [t["name"] for t in themes]
+
+        # -----------------------------
+        # MEDIA SOURCES (only for this project)
+        # -----------------------------
+        # -----------------------------
+# MEDIA SOURCES (only for this project)
+# -----------------------------
+        cursor.execute("""
+            SELECT 
+                ms.id,
+                ms.name,
+                ms.base_url,
+                ms.type
+            FROM media_sources ms
+            JOIN project_media_sources pms ON pms.media_source_id = ms.id
+            WHERE pms.project_id = %s
+            ORDER BY ms.name ASC
+        """, (p["id"],))
+
+
+        sources = cursor.fetchall()
+        p["media_sources"] = sources
 
     cursor.close()
     conn.close()

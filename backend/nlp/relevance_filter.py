@@ -1,29 +1,42 @@
 import os
 import requests
-import json
 from sentence_transformers import SentenceTransformer, util
 
-# Load embeddings model once
+# -------------------------------------------------------------------
+# LOAD EMBEDDING MODEL (only once)
+# -------------------------------------------------------------------
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 
-# ---------------------------------------------------------
-# OPTIONAL: LLM relevance confirmation (final step)
-# ---------------------------------------------------------
-def llm_relevancy_check(title, description, article):
-    question = f"""
-Project Title: {title}
-Project Description: {description}
+# ===================================================================
+# 1) OPTIONAL — LLM Relevance Confirmation
+# ===================================================================
+def llm_relevancy_check(project_title: str, project_description: str, article: dict) -> bool:
+    """
+    Uses DeepSeek to verify relevance.
+    Returns:
+        True → article is relevant
+        False → irrelevant
+    """
+    if not DEEPSEEK_API_KEY:
+        # Safe fallback: rely on embeddings only
+        return True
 
-Article Title: {article["raw_title"]}
-Article Body: {article["raw_text"][:800]}
+    body_preview = (article.get("raw_text") or "")[:800]
+
+    question = f"""
+Project Title: {project_title}
+Project Description: {project_description}
+
+Article Title: {article.get("raw_title", "")}
+Article Body: {body_preview}
 
 Question:
-Is this article related to the project? 
-Answer STRICTLY with: "YES" or "NO"
+Is this article related to the project?
+Answer STRICTLY with: YES or NO.
 """
 
     headers = {
@@ -34,54 +47,83 @@ Answer STRICTLY with: "YES" or "NO"
     payload = {
         "model": "deepseek-v2",
         "messages": [
-            {"role": "system", "content": "You classify article relevance."},
+            {"role": "system", "content": "You check if an article is relevant to a project."},
             {"role": "user", "content": question}
         ],
         "temperature": 0.0
     }
 
     try:
-        res = requests.post(DEEPSEEK_URL, json=payload, headers=headers)
-        ans = res.json()["choices"][0]["message"]["content"].strip().upper()
-        return "YES" in ans
-    except:
-        return True   # fallback
+        res = requests.post(DEEPSEEK_URL, json=payload, headers=headers, timeout=20)
+
+        if res.status_code != 200:
+            print("DeepSeek error:", res.text)
+            return True  # fail-open: do not block relevance
+
+        data = res.json()
+        answer = data["choices"][0]["message"]["content"].strip().upper()
+
+        return answer == "YES"
+
+    except Exception as e:
+        print("LLM relevancy check failed:", e)
+        return True  # fail-open safe fallback
 
 
-# ---------------------------------------------------------
-# BALANCED R2 RELEVANCE FILTERING
-# ---------------------------------------------------------
-def filter_relevant_articles(project_title, project_desc, articles):
-    # 1. Build project embedding
-    project_text = project_title + " " + project_desc
-    proj_embed = embedder.encode(project_text, convert_to_tensor=True)
+# ===================================================================
+# 2) MAIN BALANCED RELEVANCE FILTER (R2 ENGINE)
+# ===================================================================
+def filter_relevant_articles(project_title: str, project_description: str, articles: list) -> list:
+    """
+    Combined Embedding + Optional LLM relevance filter.
+    Returns only relevant articles.
+    """
 
-    relevant = []
+    # Build reference embedding
+    project_text = f"{project_title} {project_description}".strip()
+    project_embed = embedder.encode(project_text, convert_to_tensor=True)
+
+    relevant_articles = []
 
     for article in articles:
-        # 2. quick skip if article has no text
-        if not article["raw_text"]:
+        raw_title = article.get("raw_title") or ""
+        raw_text = article.get("raw_text") or ""
+
+        # Skip empty articles immediately
+        if not raw_text.strip() and not raw_title.strip():
             continue
 
-        full_text = article["raw_title"] + " " + article["raw_text"]
+        full_text = f"{raw_title} {raw_text}".strip()
 
-        # 3. embedding similarity (Balanced threshold = 0.38)
-        art_embed = embedder.encode(full_text, convert_to_tensor=True)
-        sim_score = float(util.cos_sim(proj_embed, art_embed)[0])
-
-        if sim_score < 0.38:
+        # ------------------------------
+        # 1) Embedding similarity check
+        # ------------------------------
+        try:
+            article_embed = embedder.encode(full_text, convert_to_tensor=True)
+            similarity = float(util.cos_sim(project_embed, article_embed)[0])
+        except Exception:
+            # Skip broken encoding
             continue
 
-        # 4. keyword match from project title
-        key = project_title.lower()
-        if key not in full_text.lower():
-            # acceptable, but check deeper
-            pass
-
-        # 5. LLM confirmation (Balanced R2)
-        if not llm_relevancy_check(project_title, project_desc, article):
+        # Balanced threshold (empirically good)
+        if similarity < 0.38:
             continue
 
-        relevant.append(article)
+        # ------------------------------
+        # 2) Keyword weak signal (optional)
+        # ------------------------------
+        if project_title.lower() in full_text.lower():
+            keyword_match = True
+        else:
+            keyword_match = False  # acceptable, embedding already passed
 
-    return relevant
+        # ------------------------------
+        # 3) Optional LLM confirmation
+        # ------------------------------
+        if not llm_relevancy_check(project_title, project_description, article):
+            continue
+
+        # If all checks passed
+        relevant_articles.append(article)
+
+    return relevant_articles

@@ -1,6 +1,6 @@
 // import Sidebar from "../components/Sidebar";
-import Sidebar from "../components/sidebar";
 import Topbar from "../components/Topbar";
+import Sidebar from "../components/Sidebar";
 
 export default function MainLayout({ children }: { children: any }) {
   return (

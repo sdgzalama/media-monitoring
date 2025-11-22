@@ -1,9 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from database.connection import get_db
-from uuid import uuid4
-from datetime import datetime
-
-from nlp.insight_engine import generate_project_insights  # <- AI engine
+import json
+from nlp.insight_engine import generate_project_insights
 
 router = APIRouter(prefix="/project", tags=["Insights"])
 
@@ -32,12 +30,15 @@ def get_latest_insights(project_id: str):
     if not row:
         return {"status": "empty"}
 
-    # Convert JSON fields
-    for key in ["topic_clusters", "subthemes", "sentiment", "entities",
-                "risk_scoring", "opportunity_scoring"]:
+    # Parse JSON fields
+    json_fields = [
+        "topic_clusters", "subthemes", "sentiment", "entities",
+        "risk_scoring", "opportunity_scoring", "highlights"
+    ]
+
+    for key in json_fields:
         if key in row and isinstance(row[key], str):
             try:
-                import json
                 row[key] = json.loads(row[key])
             except:
                 row[key] = None
@@ -46,15 +47,13 @@ def get_latest_insights(project_id: str):
 
 
 # ----------------------------------------------------------
-# 2️⃣ MANUAL TRIGGER — GENERATE INSIGHTS ON DEMAND
+# 2️⃣ MANUAL GENERATOR
 # ----------------------------------------------------------
 @router.post("/{project_id}/insights/generate")
 def generate_insights_now(project_id: str):
-
     try:
-        new_id = generate_project_insights(project_id)
-        return {"status": "success", "insight_id": new_id}
-
+        resp = generate_project_insights(project_id)
+        return {"status": "success", "result": resp}
     except Exception as e:
         print("Insight generation failed:", e)
         raise HTTPException(status_code=500, detail="Insight generation failed")

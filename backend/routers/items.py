@@ -1,10 +1,15 @@
-from fastapi import APIRouter, BackgroundTasks
+# BACKEND/ROUTERS/ITEMS.PY
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from database.connection import get_db
 from worker.task_queue import queue_bulk_processing, get_progress
 
 router = APIRouter(prefix="/media", tags=["Media Items"])
 
-# 1. GET — list media items
+
+# -----------------------------------------------------
+# 1. GET — LIST MEDIA ITEMS
+# -----------------------------------------------------
 @router.get("/")
 def list_media_items():
     conn = get_db()
@@ -30,7 +35,9 @@ def list_media_items():
     return items
 
 
-# 2. POST — process all RAW items in background
+# -----------------------------------------------------
+# 2. PROCESS ALL RAW ITEMS (BULK)
+# -----------------------------------------------------
 @router.post("/process/all")
 def process_all_items(background: BackgroundTasks):
     conn = get_db()
@@ -53,7 +60,9 @@ def process_all_items(background: BackgroundTasks):
     }
 
 
-# 3. GET — latest 10 items
+# -----------------------------------------------------
+# 3. GET — LATEST 10 ITEMS
+# -----------------------------------------------------
 @router.get("/latest/10")
 def latest_media_items():
     conn = get_db()
@@ -75,7 +84,48 @@ def latest_media_items():
     return items
 
 
-# 4. GET — processing progress
+# -----------------------------------------------------
+# 4. BULK PROCESSING PROGRESS
+# -----------------------------------------------------
 @router.get("/progress")
 def get_processing_progress():
     return get_progress()
+
+
+# -----------------------------------------------------
+# 5. GET SINGLE MEDIA ITEM + ALL PROJECT ANALYSIS
+# -----------------------------------------------------
+@router.get("/{media_id}")
+def get_media_item(media_id: str):
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    # ---- Fetch base media item
+    cursor.execute("""
+        SELECT m.*, s.name AS source_name
+        FROM media_items m
+        JOIN media_sources s ON s.id = m.source_id
+        WHERE m.id = %s
+    """, (media_id,))
+    item = cursor.fetchone()
+
+    if not item:
+        raise HTTPException(404, "Media item not found")
+
+    # ---- Fetch per-project AI analysis
+    cursor.execute("""
+        SELECT *
+        FROM media_item_project_analysis
+        WHERE media_item_id = %s
+        ORDER BY created_at DESC
+    """, (media_id,))
+    analyses = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    # Final response
+    return {
+        **item,
+        "project_analysis": analyses
+    }
